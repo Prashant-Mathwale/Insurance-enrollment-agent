@@ -1,0 +1,5 @@
+region,n_employees_region,hist_enrollment_rate_region,avg_salary_region,avg_premium_cost_usd,benefits_broker_rating,hr_outreach_capacity,open_enrollment_window_days,state_mandate_level
+Midwest,2488,0.617,64921.46,595,4.4,469,18,High
+Northeast,2506,0.612,65008.32,455,3.1,151,38,low
+South,2424,0.628,65200.49,481,3.3,324,17,MED
+West,2582,0.613,65007.07,574,4.7,437,28,Low
