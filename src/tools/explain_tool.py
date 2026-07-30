@@ -1,6 +1,8 @@
 """
 Milestone 18: Explanation Tool
 Agent tool for explaining individual model predictions (feature contributions and human-readable reasoning).
+Enforces Fair AI guidelines: Never cites protected attributes (gender, marital_status, age) in explanations.
+Refuses requests for legacy_propensity_score.
 """
 import os
 import sys
@@ -12,7 +14,9 @@ import numpy as np
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from predict import predict, preprocess_raw_data
 
-def explain_prediction(employee_id=None, employee_data=None, data_path=None, model_path=None):
+PROTECTED_ATTRIBUTES = {'gender', 'marital_status', 'age'}
+
+def explain_prediction(employee_id=None, employee_data=None, feature_requested=None, data_path=None, model_path=None):
     """
     Explains the predicted enrollment probability for an employee record.
 
@@ -22,14 +26,21 @@ def explain_prediction(employee_id=None, employee_data=None, data_path=None, mod
         ID of employee to explain.
     employee_data : dict or DataFrame, optional
         Raw employee record.
-    data_path : str, optional
-        Path to raw employees CSV.
+    feature_requested : str, optional
+        Specific feature requested (refuses legacy_propensity_score).
 
     Returns:
     --------
-    dict containing probability, predicted class, top positive drivers, top negative drivers,
+    dict containing probability, predicted class, top positive/negative drivers (excluding protected attributes),
     and a clear natural language narrative summary.
     """
+    if feature_requested and 'legacy_propensity_score' in str(feature_requested).lower():
+        return {
+            'status': 'refusal',
+            'refusal_type': 'TARGET_LEAKAGE_REFUSAL',
+            'message': "REFUSAL: legacy_propensity_score is excluded from model inputs due to critical target leakage (AUC = 1.0, correlation = 0.9764)."
+        }
+
     if model_path is None:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         model_path = os.path.join(current_dir, "../../models/enrollment_model.joblib")
@@ -68,49 +79,48 @@ def explain_prediction(employee_id=None, employee_data=None, data_path=None, mod
     prob = float(model.predict_proba(X_proc)[0, 1])
     pred_class = int(prob >= 0.5)
 
-    # Feature Importance / Gain mapping
-    gains = model.booster_.feature_importance(importance_type='gain')
-    feature_names = model.feature_name_
-    gain_dict = dict(zip(feature_names, gains))
-
-    # Key driver analysis based on model rules
+    # Key driver analysis based on non-protected features
     row = raw_record.iloc[0]
     drivers = []
 
-    # Rule analysis for key features
     has_dep = str(row.get('has_dependents', '')).strip() == 'Yes'
-    age = float(row.get('age', 0)) if pd.notnull(row.get('age')) else 30
     salary = float(row.get('salary', 0)) if pd.notnull(row.get('salary')) else 60000
     emp_type = str(row.get('employment_type', ''))
     prior_enrolled = row.get('prior_year_enrolled', -1)
+    tier = str(row.get('plan_tier_requested', '')).strip().title()
 
     if has_dep:
-        drivers.append(('has_dependents', 'Positive', 'Has dependents (+1), strongly increasing enrollment likelihood.'))
+        drivers.append(('has_dependents', 'Positive', 'Has dependents (+1), strongly increasing benefit enrollment likelihood.'))
     else:
-        drivers.append(('has_dependents', 'Negative', 'No dependents, reducing relative enrollment propensity.'))
+        drivers.append(('has_dependents', 'Negative', 'No dependents recorded, associated with lower enrollment propensity.'))
 
-    if age >= 35:
-        drivers.append(('age', 'Positive', f"Employee age ({int(age)}) is in mature bracket (>=35), associated with higher benefit uptake."))
+    if salary >= 60000:
+        drivers.append(('salary', 'Positive', f"Annual salary (${salary:,.2f}) is in the higher tier (>= $60,000), supporting benefit affordability."))
     else:
-        drivers.append(('age', 'Negative', f"Younger employee age ({int(age)}), associated with lower baseline enrollment."))
+        drivers.append(('salary', 'Negative', f"Annual salary (${salary:,.2f}) is below $60,000 threshold, increasing cost sensitivity."))
 
     if emp_type == 'Full-time':
         drivers.append(('employment_type', 'Positive', 'Full-time employment status increases benefit participation.'))
-    elif emp_type == 'Part-time':
-        drivers.append(('employment_type', 'Negative', 'Part-time employment status decreases enrollment probability.'))
+    elif emp_type in ['Part-time', 'Contract']:
+        drivers.append(('employment_type', 'Negative', f"{emp_type} status decreases baseline enrollment probability."))
 
     if prior_enrolled == 1:
-        drivers.append(('prior_year_enrolled', 'Positive', 'Enrolled in prior year (historical retention signal).'))
+        drivers.append(('prior_year_enrolled', 'Positive', 'Enrolled in prior year plan (strong historical retention signal).'))
     elif prior_enrolled == 0:
-        drivers.append(('prior_year_enrolled', 'Negative', 'Opted out in prior year.'))
+        drivers.append(('prior_year_enrolled', 'Negative', 'Opted out of enrollment in prior year.'))
 
-    # Format narrative summary
-    direction = "HIGH (Likely to Enroll)" if prob >= 0.5 else "LOW (Unlikely to Enroll)"
-    emp_str = f"Employee {int(row['employee_id'])}" if 'employee_id' in row and pd.notnull(row['employee_id']) else "Employee record"
+    if tier in ['Gold', 'Premium', 'Silver']:
+        drivers.append(('plan_tier_requested', 'Positive', f"Requested high-coverage plan tier ({tier}), indicating strong active interest."))
+
+    # Filter out any protected attributes strictly
+    drivers = [d for d in drivers if d[0] not in PROTECTED_ATTRIBUTES]
+
+    # Format clean 1-2 sentence narrative summary
+    direction_word = "highly likely to enroll" if prob >= 0.5 else "unlikely to enroll"
+    emp_str = f"Employee {int(row['employee_id'])}" if 'employee_id' in row and pd.notnull(row['employee_id']) else "This employee"
 
     summary_text = (
-        f"{emp_str} has a predicted enrollment probability of {prob:.2%} ({direction}). "
-        f"Key drivers: " + "; ".join([d[2] for d in drivers[:3]])
+        f"{emp_str} is predicted as {direction_word} with an estimated enrollment probability of {prob:.2%}."
     )
 
     return {
@@ -121,7 +131,8 @@ def explain_prediction(employee_id=None, employee_data=None, data_path=None, mod
         'narrative_summary': summary_text,
         'top_drivers': [
             {'feature': d[0], 'effect': d[1], 'reasoning': d[2]} for d in drivers
-        ]
+        ],
+        'fair_ai_note': "Explanations strictly exclude protected attributes (gender, marital_status, age) per corporate non-discrimination policy."
     }
 
 if __name__ == "__main__":
@@ -129,6 +140,6 @@ if __name__ == "__main__":
     res_high = explain_prediction(employee_id=17825)
     print(json.dumps(res_high, indent=2))
 
-    print("\n=== Testing Explanation Tool (Low Prob Employee) ===")
-    res_low = explain_prediction(employee_id=12324)
-    print(json.dumps(res_low, indent=2))
+    print("\n=== Testing Explanation Tool (Refusal Test) ===")
+    res_ref = explain_prediction(employee_id=17825, feature_requested='legacy_propensity_score')
+    print(json.dumps(res_ref, indent=2))

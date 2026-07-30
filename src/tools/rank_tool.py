@@ -84,8 +84,28 @@ def rank_employees(
 
     ranked_subset = merged.head(effective_k)
 
+    channel_map = {
+        'EMAIL': 'Email',  'email': 'Email',  'e-mail': 'Email',  'Email': 'Email',
+        'PHONE': 'Phone',  'phone': 'Phone',  'Phone': 'Phone',   'Call':  'Phone',
+        'SMS':   'SMS',    'sms':   'SMS',    'Text':  'SMS',
+        'none':  'Unknown',
+    }
+    tier_map = {
+        'STANDARD': 'Standard', 'Standard': 'Standard', 'standard': 'Standard',
+        'Silver':   'Silver',   'silver plan': 'Silver',
+        'Bronze':   'Bronze',
+        'BASIC':    'Basic',    'Basic': 'Basic',    'basic': 'Basic',
+        'premium plan': 'Premium', 'Premium': 'Premium', 'PREMIUM': 'Premium',
+        'gold':     'Gold',    'Gold Plan': 'Gold',    'Gold': 'Gold',
+    }
+
     rankings = []
     for rank_idx, (_, row) in enumerate(ranked_subset.iterrows(), start=1):
+        raw_tier = str(row['plan_tier_requested']) if pd.notnull(row['plan_tier_requested']) else 'Unknown'
+        raw_chan = str(row['last_contact_channel']) if pd.notnull(row['last_contact_channel']) else 'Unknown'
+        clean_tier = tier_map.get(raw_tier, tier_map.get(raw_tier.strip(), 'Unknown'))
+        clean_chan = channel_map.get(raw_chan, channel_map.get(raw_chan.strip(), 'Unknown'))
+
         rec = {
             'rank': rank_idx,
             'employee_id': int(row['employee_id']),
@@ -93,7 +113,10 @@ def rank_employees(
             'salary': float(row['salary']) if pd.notnull(row['salary']) else None,
             'region': str(row['region']),
             'employment_type': str(row['employment_type']),
-            'plan_tier_requested': str(row['plan_tier_requested']) if pd.notnull(row['plan_tier_requested']) else 'Unknown',
+            'plan_tier_requested_clean': clean_tier,
+            'last_contact_channel_clean': clean_chan,
+            'plan_tier_requested': clean_tier,
+            'last_contact_channel': clean_chan,
             'enrollment_probability': round(float(row['predicted_probability']), 4),
             'predicted_enrolled': int(row['predicted_class'])
         }
@@ -111,6 +134,27 @@ def rank_employees(
         },
         'rankings': rankings
     }
+
+def lookup_region_profile(region=None, data_path=None):
+    """
+    Look up region-level statistics from region_benefit_profiles.csv.
+    """
+    if data_path is None:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        data_path = os.path.join(current_dir, "../../data/region_benefit_profiles.csv")
+
+    if not os.path.exists(data_path):
+        return {'status': 'error', 'message': f"Region profiles file not found at {data_path}"}
+
+    df_reg = pd.read_csv(data_path)
+
+    if region is not None:
+        matched = df_reg[df_reg['region'].str.lower() == str(region).lower()]
+        if matched.empty:
+            return {'status': 'error', 'message': f"Region '{region}' not found in profiles."}
+        return {'status': 'success', 'data': matched.to_dict(orient='records')[0]}
+
+    return {'status': 'success', 'data': df_reg.to_dict(orient='records')}
 
 if __name__ == "__main__":
     print("=== Testing Ranking Tool: Top 5 Highest Probability ===")
