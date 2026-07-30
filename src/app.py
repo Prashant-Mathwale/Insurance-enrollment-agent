@@ -69,6 +69,86 @@ def main() -> None:
         layout="wide"
     )
 
+    # Custom CSS for increased typography size & enhanced readability across all tables, headers, and inputs
+    st.markdown("""
+    <style>
+    /* 1. Tab Bar Navigation Labels */
+    button[data-baseweb="tab"] p {
+        font-size: 1.22rem !important;
+        font-weight: 700 !important;
+    }
+    button[data-baseweb="tab"] {
+        padding-top: 0.7rem !important;
+        padding-bottom: 0.7rem !important;
+    }
+
+    /* 2. Subtitle & Header Captions */
+    div[data-testid="stCaptionContainer"] p, .stCaption {
+        font-size: 1.1rem !important;
+        line-height: 1.6 !important;
+        color: #CBD5E1 !important;
+    }
+
+    /* 3. Form Input Labels & Widget Labels */
+    div[data-widget-label="true"] p, label p {
+        font-size: 1.12rem !important;
+        font-weight: 700 !important;
+        color: #F8FAFC !important;
+    }
+
+    /* 4. Table Column Headers & Feature Names */
+    div[data-testid="stTable"] th, 
+    div[data-testid="stTable"] th p, 
+    th, th p, 
+    div[role="columnheader"] {
+        font-size: 1.18rem !important;
+        font-weight: 700 !important;
+        color: #60A5FA !important;
+    }
+
+    /* 5. Table Cell Data & Feature Value Text */
+    div[data-testid="stTable"] td, 
+    div[data-testid="stTable"] td p, 
+    td, td p, 
+    div[role="gridcell"] {
+        font-size: 1.1rem !important;
+        line-height: 1.6 !important;
+        color: #F8FAFC !important;
+    }
+
+    /* 6. Metric Card Labels & Values */
+    div[data-testid="stMetricLabel"] p, label[data-testid="stMetricLabel"] {
+        font-size: 1.1rem !important;
+        font-weight: 600 !important;
+        color: #94A3B8 !important;
+    }
+    div[data-testid="stMetricValue"] {
+        font-size: 1.8rem !important;
+        font-weight: 700 !important;
+        color: #F8FAFC !important;
+    }
+
+    /* 7. Alert & Info Banner Text */
+    div[data-testid="stAlert"] p {
+        font-size: 1.1rem !important;
+        line-height: 1.6 !important;
+    }
+
+    /* 8. Button Labels */
+    button[kind="primary"] p, button[kind="secondary"] p {
+        font-size: 1.12rem !important;
+        font-weight: 700 !important;
+    }
+
+    /* 9. Section Subheaders */
+    .stMarkdown h2, .stMarkdown h3 {
+        font-size: 1.45rem !important;
+        font-weight: 700 !important;
+        color: #F8FAFC !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.title("🛡️ Insurance Enrollment Outreach Assistant")
     st.caption("A thin UI dashboard wrapping the CLI Insurance Enrollment Agent tools and machine learning inference pipeline.")
 
