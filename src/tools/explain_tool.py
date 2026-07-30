@@ -41,6 +41,20 @@ def explain_prediction(employee_id=None, employee_data=None, feature_requested=N
             'message': "REFUSAL: legacy_propensity_score is excluded from model inputs due to critical target leakage (AUC = 1.0, correlation = 0.9764)."
         }
 
+    if employee_data is not None:
+        has_legacy = False
+        if isinstance(employee_data, dict) and 'legacy_propensity_score' in employee_data:
+            has_legacy = True
+        elif isinstance(employee_data, pd.DataFrame) and 'legacy_propensity_score' in employee_data.columns:
+            has_legacy = True
+
+        if has_legacy:
+            return {
+                'status': 'refusal',
+                'refusal_type': 'TARGET_LEAKAGE_REFUSAL',
+                'message': "REFUSAL: legacy_propensity_score is excluded from model inputs due to critical target leakage (AUC = 1.0, correlation = 0.9764)."
+            }
+
     if model_path is None:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         model_path = os.path.join(current_dir, "../../models/enrollment_model.joblib")

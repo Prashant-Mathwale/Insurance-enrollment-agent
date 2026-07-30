@@ -9,11 +9,10 @@ import joblib
 import pandas as pd
 import numpy as np
 
-# Expected feature column order used during training
 EXPECTED_FEATURES = [
-    'age', 'gender', 'marital_status', 'salary', 'employment_type',
-    'region', 'tenure_years', 'hist_enrollment_rate_region',
-    'avg_premium_cost_usd', 'benefits_broker_rating', 'hr_outreach_capacity',
+    'salary', 'employment_type', 'region', 'tenure_years',
+    'hist_enrollment_rate_region', 'avg_premium_cost_usd',
+    'benefits_broker_rating', 'hr_outreach_capacity',
     'open_enrollment_window_days', 'state_mandate_level',
     'has_application_date', 'days_contact_to_app', 'contact_after_app',
     'no_prior_record', 'prior_year_enrolled_clean',

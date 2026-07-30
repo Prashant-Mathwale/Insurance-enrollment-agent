@@ -17,14 +17,12 @@ def create_splits():
     # Load and engineer full dataset
     df, candidate_features = engineer_features()
 
-    # Define features to drop explicitly based on Decision 7
-    # legacy_propensity_score MUST be excluded
     features_to_drop = [
         'employee_id', 'application_date', 'last_contact_date',
         'app_date', 'contact_date', 'prior_year_enrolled', 'has_dependents',
         'last_contact_channel', 'plan_tier_requested', 'broker_channel',
         'legacy_propensity_score', 'n_employees_region', 'avg_salary_region',
-        'outreach_notes'
+        'outreach_notes', 'age', 'gender', 'marital_status'
     ]
 
     clean_df = df.drop(columns=[c for c in features_to_drop if c in df.columns])

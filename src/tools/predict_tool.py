@@ -2,6 +2,7 @@
 Milestone 16: Prediction Tool
 Agent tool for predicting insurance enrollment probability for an individual employee
 or a list of employee IDs / raw employee data.
+Enforces target leakage refusal for legacy_propensity_score requests.
 """
 import os
 import sys
@@ -11,7 +12,7 @@ import pandas as pd
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from predict import predict
 
-def predict_employee_enrollment(employee_id=None, employee_data=None, data_path=None):
+def predict_employee_enrollment(employee_id=None, employee_data=None, feature_requested=None, data_path=None):
     """
     Predict insurance enrollment probability for an employee.
 
@@ -21,6 +22,8 @@ def predict_employee_enrollment(employee_id=None, employee_data=None, data_path=
         ID or list of IDs of employee(s) to predict from raw data CSV.
     employee_data : dict or list of dicts or DataFrame, optional
         Raw employee record(s) passed directly.
+    feature_requested : str, optional
+        Explicit feature requested (refuses legacy_propensity_score).
     data_path : str, optional
         Path to raw employees CSV (defaults to data/employees_raw.csv).
 
@@ -28,7 +31,31 @@ def predict_employee_enrollment(employee_id=None, employee_data=None, data_path=
     --------
     dict containing prediction status, employee summary, probability, and decision.
     """
+    # Refusal check for explicit feature_requested parameter
+    if feature_requested and 'legacy_propensity_score' in str(feature_requested).lower():
+        return {
+            'status': 'refusal',
+            'refusal_type': 'TARGET_LEAKAGE_REFUSAL',
+            'message': "REFUSAL: legacy_propensity_score is excluded from model inputs due to critical target leakage (AUC = 1.0, correlation = 0.9764)."
+        }
+
+    # Refusal check for legacy_propensity_score present in employee_data
     if employee_data is not None:
+        has_legacy = False
+        if isinstance(employee_data, dict) and 'legacy_propensity_score' in employee_data:
+            has_legacy = True
+        elif isinstance(employee_data, list) and any(isinstance(x, dict) and 'legacy_propensity_score' in x for x in employee_data):
+            has_legacy = True
+        elif isinstance(employee_data, pd.DataFrame) and 'legacy_propensity_score' in employee_data.columns:
+            has_legacy = True
+
+        if has_legacy:
+            return {
+                'status': 'refusal',
+                'refusal_type': 'TARGET_LEAKAGE_REFUSAL',
+                'message': "REFUSAL: legacy_propensity_score is excluded from model inputs due to critical target leakage (AUC = 1.0, correlation = 0.9764)."
+            }
+
         try:
             res_df = predict(employee_data)
             results = []
@@ -98,3 +125,9 @@ if __name__ == "__main__":
     }
     res_dict = predict_employee_enrollment(employee_data=raw_dict)
     print(json.dumps(res_dict, indent=2))
+
+    print("\n=== Testing Prediction Tool Refusal (legacy_propensity_score) ===")
+    leaky_dict = raw_dict.copy()
+    leaky_dict['legacy_propensity_score'] = 0.95
+    res_refusal = predict_employee_enrollment(employee_data=leaky_dict)
+    print(json.dumps(res_refusal, indent=2))
