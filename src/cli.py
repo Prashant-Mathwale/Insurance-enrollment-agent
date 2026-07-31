@@ -20,8 +20,9 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Available agent commands")
 
     # Command 1: Predict
-    predict_parser = subparsers.add_parser("predict", help="Predict enrollment probability for an employee ID")
-    predict_parser.add_argument("employee_id", type=int, help="Employee ID (e.g., 12324)")
+    predict_parser = subparsers.add_parser("predict", help="Predict enrollment probability for an employee ID or custom CSV")
+    predict_parser.add_argument("employee_id", type=int, nargs="?", default=None, help="Employee ID (e.g., 12324)")
+    predict_parser.add_argument("--data_path", type=str, default=None, help="Path to custom raw employees CSV file")
 
     # Command 2: Rank
     rank_parser = subparsers.add_parser("rank", help="Rank employees by enrollment probability")
@@ -30,10 +31,12 @@ def main():
     rank_parser.add_argument("--employment_type", type=str, choices=["Full-time", "Part-time", "Contract"], help="Filter by employment type")
     rank_parser.add_argument("--ascending", action="store_true", help="Rank lowest probability first if set")
     rank_parser.add_argument("--capacity", action="store_true", help="Apply regional HR outreach capacity cap")
+    rank_parser.add_argument("--data_path", type=str, default=None, help="Path to custom raw employees CSV file")
 
     # Command 3: Explain
     explain_parser = subparsers.add_parser("explain", help="Explain prediction drivers for an employee ID")
     explain_parser.add_argument("employee_id", type=int, help="Employee ID (e.g., 17825)")
+    explain_parser.add_argument("--data_path", type=str, default=None, help="Path to custom raw employees CSV file")
 
     # Command 4: Query (Natural language prompt with guardrails)
     query_parser = subparsers.add_parser("query", help="Ask a natural language query with safety guardrails")
@@ -46,7 +49,14 @@ def main():
         sys.exit(1)
 
     if args.command == "predict":
-        res = predict_employee_enrollment(employee_id=args.employee_id)
+        if args.employee_id is not None:
+            res = predict_employee_enrollment(employee_id=args.employee_id, data_path=args.data_path)
+        elif args.data_path is not None:
+            # Predict entire custom CSV
+            res = predict_employee_enrollment(data_path=args.data_path)
+        else:
+            predict_parser.print_help()
+            sys.exit(1)
         print(json.dumps(res, indent=2))
 
     elif args.command == "rank":
@@ -55,7 +65,8 @@ def main():
             ascending=args.ascending,
             region=args.region,
             employment_type=args.employment_type,
-            apply_hr_capacity_limit=args.capacity
+            apply_hr_capacity_limit=args.capacity,
+            data_path=args.data_path
         )
         print(json.dumps(res, indent=2))
 

@@ -22,6 +22,15 @@ EXPECTED_FEATURES = [
 
 REQUIRED_RAW_COLUMNS = ['region']
 
+CATEGORICAL_LEVELS = {
+    'employment_type': ['Contract', 'Full-time', 'Part-time'],
+    'region': ['Midwest', 'Northeast', 'South', 'West'],
+    'state_mandate_level': ['High', 'Low', 'Medium'],
+    'last_contact_channel_clean': ['Email', 'Phone', 'SMS', 'Unknown'],
+    'plan_tier_requested_clean': ['Basic', 'Bronze', 'Gold', 'Premium', 'Silver', 'Standard', 'Unknown'],
+    'broker_channel_clean': ['Direct', 'Employer-Sponsored', 'Third-Party', 'Unknown']
+}
+
 def validate_input(input_data):
     """Validate input format and return a copy of DataFrame."""
     if input_data is None:
@@ -48,7 +57,7 @@ def validate_input(input_data):
 
     return df
 
-def preprocess_raw_data(df_raw, df_reg=None):
+def preprocess_raw_data(df_raw, df_reg=None, model=None):
     """
     Applies the exact cleaning and feature engineering pipeline to raw input records.
     Matches the logic in feature_engineering.py.
@@ -121,10 +130,10 @@ def preprocess_raw_data(df_raw, df_reg=None):
     # Reorder and select features exactly matching expected order
     X = df[EXPECTED_FEATURES].copy()
 
-    # Convert object columns to category for LightGBM
-    cat_cols = X.select_dtypes(include=['object']).columns.tolist()
-    for c in cat_cols:
-        X[c] = X[c].astype('category')
+    # Convert object / categorical columns using exact predefined category levels to prevent LightGBM mismatches
+    for col, cats in CATEGORICAL_LEVELS.items():
+        if col in X.columns:
+            X[col] = pd.Categorical(X[col], categories=cats)
 
     emp_ids = df['employee_id'] if 'employee_id' in df.columns else None
     return emp_ids, X
@@ -142,7 +151,7 @@ def predict(df_raw, model=None, model_path=None):
             raise FileNotFoundError(f"Model file not found at: {model_path}")
         model = joblib.load(model_path)
 
-    emp_ids, X = preprocess_raw_data(df_raw)
+    emp_ids, X = preprocess_raw_data(df_raw, model=model)
 
     probs = model.predict_proba(X)[:, 1]
     preds = (probs >= 0.5).astype(int)
@@ -163,6 +172,5 @@ if __name__ == "__main__":
     sample_path = os.path.join(current_dir, "../data/employees_raw.csv")
 
     df_sample = pd.read_csv(sample_path).head(10)
-    predictions = predict(df_sample)
-    print("=== Sample Inference Results (First 10 Records) ===")
-    print(predictions)
+    res = predict(df_sample)
+    print(res)
