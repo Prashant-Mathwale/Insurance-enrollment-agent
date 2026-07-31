@@ -11,6 +11,22 @@ import pandas as pd
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from predict import predict
 
+# Canonical cleaning maps — module-level so other tools can import them
+channel_map = {
+    'EMAIL': 'Email',  'email': 'Email',  'e-mail': 'Email',  'Email': 'Email',
+    'PHONE': 'Phone',  'phone': 'Phone',  'Phone': 'Phone',   'Call':  'Phone',
+    'SMS':   'SMS',    'sms':   'SMS',    'Text':  'SMS',
+    'none':  'Unknown',
+}
+tier_map = {
+    'STANDARD': 'Standard', 'Standard': 'Standard', 'standard': 'Standard',
+    'Silver':   'Silver',   'silver plan': 'Silver',
+    'Bronze':   'Bronze',
+    'BASIC':    'Basic',    'Basic': 'Basic',    'basic': 'Basic',
+    'premium plan': 'Premium', 'Premium': 'Premium', 'PREMIUM': 'Premium',
+    'gold':     'Gold',    'Gold Plan': 'Gold',    'Gold': 'Gold',
+}
+
 def rank_employees(
     top_k=10,
     ascending=False,
@@ -83,21 +99,6 @@ def rank_employees(
         effective_k = min(top_k, capacity_cap)
 
     ranked_subset = merged.head(effective_k)
-
-    channel_map = {
-        'EMAIL': 'Email',  'email': 'Email',  'e-mail': 'Email',  'Email': 'Email',
-        'PHONE': 'Phone',  'phone': 'Phone',  'Phone': 'Phone',   'Call':  'Phone',
-        'SMS':   'SMS',    'sms':   'SMS',    'Text':  'SMS',
-        'none':  'Unknown',
-    }
-    tier_map = {
-        'STANDARD': 'Standard', 'Standard': 'Standard', 'standard': 'Standard',
-        'Silver':   'Silver',   'silver plan': 'Silver',
-        'Bronze':   'Bronze',
-        'BASIC':    'Basic',    'Basic': 'Basic',    'basic': 'Basic',
-        'premium plan': 'Premium', 'Premium': 'Premium', 'PREMIUM': 'Premium',
-        'gold':     'Gold',    'Gold Plan': 'Gold',    'Gold': 'Gold',
-    }
 
     rankings = []
     for rank_idx, (_, row) in enumerate(ranked_subset.iterrows(), start=1):

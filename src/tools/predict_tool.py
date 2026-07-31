@@ -11,6 +11,7 @@ import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from predict import predict
+from tools.rank_tool import tier_map
 
 def predict_employee_enrollment(employee_id=None, employee_data=None, feature_requested=None, data_path=None):
     """
@@ -95,12 +96,14 @@ def predict_employee_enrollment(employee_id=None, employee_data=None, feature_re
         results = []
         for idx, row in res_df.iterrows():
             emp_rec = matched[matched['employee_id'] == row['employee_id']].iloc[0]
+            raw_tier = str(emp_rec['plan_tier_requested']) if pd.notnull(emp_rec['plan_tier_requested']) else 'Unknown'
+            clean_tier = tier_map.get(raw_tier, tier_map.get(raw_tier.strip(), 'Unknown'))
             summary = {
                 'employee_id': int(row['employee_id']),
                 'age': int(emp_rec['age']) if pd.notnull(emp_rec['age']) else None,
                 'salary': float(emp_rec['salary']) if pd.notnull(emp_rec['salary']) else None,
                 'region': str(emp_rec['region']),
-                'plan_tier_requested': str(emp_rec['plan_tier_requested']) if pd.notnull(emp_rec['plan_tier_requested']) else 'Unknown',
+                'plan_tier_requested_clean': clean_tier,
                 'enrollment_probability': round(float(row['predicted_probability']), 4),
                 'predicted_enrolled': int(row['predicted_class'])
             }

@@ -23,6 +23,7 @@ def main():
     predict_parser = subparsers.add_parser("predict", help="Predict enrollment probability for an employee ID or custom CSV")
     predict_parser.add_argument("employee_id", type=int, nargs="?", default=None, help="Employee ID (e.g., 12324)")
     predict_parser.add_argument("--data_path", type=str, default=None, help="Path to custom raw employees CSV file")
+    predict_parser.add_argument("--feature_requested", type=str, default=None, help="Explicit feature requested — used to trigger leakage-refusal demo (e.g. legacy_propensity_score)")
 
     # Command 2: Rank
     rank_parser = subparsers.add_parser("rank", help="Rank employees by enrollment probability")
@@ -37,6 +38,7 @@ def main():
     explain_parser = subparsers.add_parser("explain", help="Explain prediction drivers for an employee ID")
     explain_parser.add_argument("employee_id", type=int, help="Employee ID (e.g., 17825)")
     explain_parser.add_argument("--data_path", type=str, default=None, help="Path to custom raw employees CSV file")
+    explain_parser.add_argument("--feature_requested", type=str, default=None, help="Explicit feature requested — used to trigger leakage-refusal demo (e.g. legacy_propensity_score)")
 
     # Command 4: Query (Natural language prompt with guardrails)
     query_parser = subparsers.add_parser("query", help="Ask a natural language query with safety guardrails")
@@ -50,7 +52,11 @@ def main():
 
     if args.command == "predict":
         if args.employee_id is not None:
-            res = predict_employee_enrollment(employee_id=args.employee_id, data_path=args.data_path)
+            res = predict_employee_enrollment(
+                employee_id=args.employee_id,
+                data_path=args.data_path,
+                feature_requested=args.feature_requested,
+            )
         elif args.data_path is not None:
             # Predict entire custom CSV
             res = predict_employee_enrollment(data_path=args.data_path)
@@ -71,7 +77,10 @@ def main():
         print(json.dumps(res, indent=2))
 
     elif args.command == "explain":
-        res = explain_prediction(employee_id=args.employee_id)
+        res = explain_prediction(
+            employee_id=args.employee_id,
+            feature_requested=args.feature_requested,
+        )
         print(json.dumps(res, indent=2))
 
     elif args.command == "query":

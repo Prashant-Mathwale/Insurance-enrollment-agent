@@ -61,28 +61,28 @@ Independent investigation (a simple decision tree, depth 5, on just `salary`, `a
 **Rationale:**
 1. Citing gender, age, or marital status to justify differential outreach is ethically and legally risky, even when the correlation is real rather than spurious.
 2. Excluding them removes the possibility of an outreach decision being (or appearing to be) driven by a protected attribute, without requiring post-hoc bias correction.
-3. The measured cost is small and honest: ROC-AUC drops from **1.0000** (with demographics) to **0.9682** (without) — a real, quantified trade-off rather than an assumed one.
+3. The measured cost is small and honest: ROC-AUC drops from **1.0000** (with demographics) to **0.9690** (without) — a real, quantified trade-off rather than an assumed one.
 4. Demographics are **retained in the raw/processed dataset for post-modeling fairness auditing only**, never as model input (see below).
 
 **Subgroup performance breakdown** (predicted vs. actual enrollment rate, on the held-out test set, computed from raw metadata joined back in only for this audit — not used in training):
 
 | Gender | n | Actual rate | Predicted rate | Avg. probability |
 |---|---|---|---|---|
-| Female | 949 | 60.2% | 64.7% | 0.594 |
-| Male | 979 | 63.5% | 67.2% | 0.624 |
-| Other | 71 | 57.8% | 59.2% | 0.554 |
+| Female | 949 | 60.2% | 65.0% | 0.594 |
+| Male | 979 | 63.5% | 67.8% | 0.625 |
+| Other | 71 | 57.8% | 59.2% | 0.552 |
 
 | Age group | n | Actual rate | Predicted rate | Avg. probability |
 |---|---|---|---|---|
-| 20–35 | 595 | 41.3% | 60.2% | 0.553 |
-| 36–50 | 723 | 68.9% | 66.5% | 0.615 |
-| 51–65 | 681 | 72.0% | 69.8% | 0.646 |
+| 20–35 | 595 | 41.3% | 60.5% | 0.553 |
+| 36–50 | 723 | 68.9% | 66.8% | 0.616 |
+| 51–65 | 681 | 72.0% | 70.5% | 0.647 |
 
 | Marital status | n | Actual rate | Predicted rate | Avg. probability |
 |---|---|---|---|---|
-| Divorced | 214 | 56.5% | 59.8% | 0.534 |
-| Married | 885 | 61.5% | 65.9% | 0.608 |
-| Single | 775 | 63.1% | 67.0% | 0.620 |
+| Divorced | 214 | 56.5% | 59.4% | 0.534 |
+| Married | 885 | 61.5% | 66.2% | 0.608 |
+| Single | 775 | 63.1% | 67.9% | 0.622 |
 | Widowed | 125 | 64.0% | 67.2% | 0.644 |
 
 **Comment:** gender and marital-status subgroups are closely tracked (all within ~4 points of actual rate) — no group looks meaningfully disadvantaged. The one gap worth flagging honestly: the **20–35 age group is over-predicted by ~19 points** (41.3% actual vs. 60.2% predicted) relative to the other two age bands, which stay within ~3 points. Even with `age` excluded from training, this pattern likely comes through correlated features (`tenure_years`, `salary`, `prior_year_enrolled`), which are legitimately younger-skewed. This means the model may over-prioritize younger employees for outreach relative to their true likelihood — worth monitoring, not something we can fully rule out without a stricter fairness-constrained model, which is out of scope given the timeline (see §6).
@@ -91,19 +91,19 @@ Independent investigation (a simple decision tree, depth 5, on just `salary`, `a
 
 **Split:** stratified 80/20 (`random_state=42`) — this is cross-sectional data (no temporal ordering to respect), so a plain stratified split is appropriate. Train: 7,993 rows (61.73% enrolled). Test: 1,999 rows (61.73% enrolled).
 
-**Model:** `LightGBMClassifier` (`n_estimators=150, learning_rate=0.05, max_depth=5, num_leaves=31`), selected over XGBoost after 5-fold stratified CV (LightGBM 0.9731 ± 0.0016 vs. XGBoost 0.9731 ± 0.0013 — effectively tied; LightGBM chosen for faster training and native categorical support, avoiding manual one-hot encoding).
+**Model:** `LightGBMClassifier` (`n_estimators=150, learning_rate=0.05, max_depth=5, num_leaves=31`), selected over XGBoost after 5-fold stratified CV (LightGBM 0.9733 ± 0.0014 vs. XGBoost 0.9733 ± 0.0013 — effectively tied; LightGBM chosen for faster training and native categorical support, avoiding manual one-hot encoding).
 
 **Final test-set metrics (20 features, no demographics, no leaky fields):**
 
 | Metric | Value |
 |---|---|
-| ROC-AUC | 0.9682 |
-| PR-AUC | 0.9771 |
-| Accuracy | 92.40% |
-| Precision | 0.9117 |
-| Recall | 0.9708 |
-| F1 | 0.9403 |
-| Brier Score | 0.0544 |
+| ROC-AUC | 0.9690 |
+| PR-AUC | 0.9781 |
+| Accuracy | 92.65% |
+| Precision | 0.9108 |
+| Recall | 0.9765 |
+| F1 | 0.9425 |
+| Brier Score | 0.0539 |
 
 **Baseline comparison:**
 
@@ -111,7 +111,7 @@ Independent investigation (a simple decision tree, depth 5, on just `salary`, `a
 |---|---|---|
 | Majority-class baseline | 61.73% | — |
 | Naive rule (`predict 1 if has_dependents == Yes`) | 74.04% | 0.7301 |
-| **Final LightGBM model** | **92.40%** | **0.9682** |
+| **Final LightGBM model** | **92.65%** | **0.9690** |
 
 The final model clearly beats both naive baselines.
 
